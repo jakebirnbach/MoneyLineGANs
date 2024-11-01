@@ -112,14 +112,20 @@ def sleep_until_out_of_interval(start_time: str, end_time: str):
     :param start_time: Start time in 'HH:MM' 24-hour format (e.g., '06:00').
     :param end_time: End time in 'HH:MM' 24-hour format (e.g., '01:00').
     """
-    now = datetime.now()
+    # Use Eastern Time zone
+    tz = pytz.timezone('America/New_York')
+    now = datetime.now(tz)
     current_time = now.time()
 
     # Convert start_time and end_time to datetime objects (today's date)
     start = datetime.combine(now.date(), datetime.strptime(start_time, '%H:%M').time())
     end = datetime.combine(now.date(), datetime.strptime(end_time, '%H:%M').time())
 
-    # If the end time is past midnight (e.g., 01:00)
+    # Localize start and end times to the Eastern Time zone
+    start = tz.localize(start)
+    end = tz.localize(end)
+
+    # If the end time is before the start time, it means the interval spans midnight
     if end < start:
         end += timedelta(days=1)  # Adjust the end time to the next day if it spans midnight
 
@@ -127,10 +133,10 @@ def sleep_until_out_of_interval(start_time: str, end_time: str):
     if start <= now <= end:
         # Calculate how long to sleep until the end of the interval
         sleep_duration = (end - now).total_seconds()
-        print(f"Current time is within the interval {start_time} - {end_time}, sleeping for {sleep_duration} seconds.")
+        print(f"Current time is within the interval {start_time} - {end_time} EST, sleeping for {sleep_duration} seconds.")
         time.sleep(sleep_duration)
-    # else:
-    #     print("Current time is outside the specified interval, no sleep.")
+    else:
+        print("Current time is outside the specified interval, no sleep.")
 
 def get_current_date_time_est():
     # Define the Eastern Standard Time zone
