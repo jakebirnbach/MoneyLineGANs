@@ -69,12 +69,13 @@ class OddsAPI():
 
                     #Adds column representing the time before the game starts in iso format
                     #Time to game represents the time in 
-                    new_row['commence_time_est'] = ts_to_iso(new_row['commence_time'])
+                    new_row['commence_time_pst'] = ts_to_iso(new_row['commence_time'])
                     new_row['ts'] = time.time()
                     new_row['game_time_ms'] =  new_row['ts'] - new_row['commence_time']
                     new_row['game_time_hrs'] = convert_to_hours(new_row['game_time_ms'])
                     new_row['last_update'] = book['markets'][0]['last_update']
-                    new_row['last_update_est'] = ts_to_iso(new_row['last_update'])
+                    new_row['last_update_pst'] = ts_to_iso(new_row['last_update'])
+                    new_row['true_game_time_ms'] = new_row['last_update'] - new_row['commence_time']
                     new_df = pd.concat([new_df, new_row], axis=1)
             # print(new_row)
         
@@ -87,7 +88,7 @@ class OddsAPI():
 
 #Converts UNIX timestamp to ISO format for readability
 def ts_to_iso(ts):  
-    tz = pytz.timezone('America/New_york')
+    tz = pytz.timezone('America/Los_Angeles')
     return datetime.fromtimestamp(ts, tz).isoformat()
 
 def extract_time(iso_timestamp):
@@ -113,7 +114,7 @@ def sleep_until_out_of_interval(start_time: str, end_time: str):
     :param end_time: End time in 'HH:MM' 24-hour format (e.g., '01:00').
     """
     # Use Eastern Time zone
-    tz = pytz.timezone('America/New_York')
+    tz = pytz.timezone('America/Los_Angeles')
     now = datetime.now(tz)
     current_time = now.time()
 
@@ -133,25 +134,25 @@ def sleep_until_out_of_interval(start_time: str, end_time: str):
     if start <= now <= end:
         # Calculate how long to sleep until the end of the interval
         sleep_duration = (end - now).total_seconds()
-        print(f"Current time is within the interval {start_time} - {end_time} EST, sleeping for {sleep_duration} seconds.")
+        print(f"Current time is within the interval {start_time} - {end_time} PST, sleeping for {sleep_duration} seconds.")
         time.sleep(sleep_duration)
     #else:
         #print("Current time is outside the specified interval, no sleep.")
 
 def get_current_date_time_est():
-    # Define the Eastern Standard Time zone
-    est_timezone = pytz.timezone('America/New_York')
+    # Define the Pacific Standard Time zone
+    pst_timezone = pytz.timezone('America/Los_Angeles')
     
     # Get the current time in UTC
     utc_time = datetime.now(pytz.utc)
     
-    # Convert the current UTC time to EST time
-    est_time = utc_time.astimezone(est_timezone)
+    # Convert the current UTC time to PST time
+    pst_time = utc_time.astimezone(pst_timezone)
     
-    return est_time
+    return pst_time
 
 def execute_interval(interval_seconds):
-    tz = pytz.timezone('America/New_York')
+    tz = pytz.timezone('America/Los_Angeles')
 
     # Align to the next interval
     est_time = datetime.now(tz)
@@ -168,11 +169,11 @@ def execute_interval(interval_seconds):
         # Perform the data scraping and saving process
         odds_api = OddsAPI(ODDS_KEYS[0])
         data = odds_api.data
-        first_start_time = data[data['commence_time'] == data['commence_time'].min()].iloc[0]['commence_time_est']
+        first_start_time = data[data['commence_time'] == data['commence_time'].min()].iloc[0]['commence_time_pst']
         start_time_lag = (datetime.fromisoformat(first_start_time) - timedelta(minutes=5)).strftime('%H:%M')
 
         # Sleep during the specified interval
-        sleep_until_out_of_interval('02:00', start_time_lag)
+        sleep_until_out_of_interval('00:00', start_time_lag)
 
         est_time = datetime.now(tz)
         curr_date = est_time.strftime('%Y-%m-%d')
