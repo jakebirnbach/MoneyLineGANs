@@ -135,8 +135,8 @@ def sleep_until_out_of_interval(start_time: str, end_time: str):
         sleep_duration = (end - now).total_seconds()
         print(f"Current time is within the interval {start_time} - {end_time} EST, sleeping for {sleep_duration} seconds.")
         time.sleep(sleep_duration)
-    else:
-        print("Current time is outside the specified interval, no sleep.")
+    #else:
+        #print("Current time is outside the specified interval, no sleep.")
 
 def get_current_date_time_est():
     # Define the Eastern Standard Time zone
@@ -150,17 +150,20 @@ def get_current_date_time_est():
     
     return est_time
 
-
 def execute_interval(interval_seconds):
+    tz = pytz.timezone('America/New_York')
+
     # Align to the next interval
-    est_time = get_current_date_time_est()
+    est_time = datetime.now(tz)
     seconds = est_time.second
-    delay = interval_seconds - (seconds % interval_seconds)  # Calculate delay to the next interval mark
+    delay = interval_seconds - (seconds % interval_seconds)
+    if delay == interval_seconds:
+        delay = 0  # Already aligned
     time.sleep(delay)  # Align with the next interval
 
-    # Set the first 'next_run' to the next interval mark after alignment
-    next_run = datetime.now().replace(microsecond=0) + timedelta(seconds=interval_seconds)
-    
+    # Set next_run to the current time (already aligned)
+    next_run = datetime.now(tz).replace(microsecond=0)
+
     while True:
         # Perform the data scraping and saving process
         odds_api = OddsAPI(ODDS_KEYS[0])
@@ -168,24 +171,33 @@ def execute_interval(interval_seconds):
         first_start_time = data[data['commence_time'] == data['commence_time'].min()].iloc[0]['commence_time_est']
         start_time_lag = (datetime.fromisoformat(first_start_time) - timedelta(minutes=5)).strftime('%H:%M')
 
-        # Sleeps between 2AM and 5 minutes before the first game
+        # Sleep during the specified interval
         sleep_until_out_of_interval('02:00', start_time_lag)
-        
-        est_time = get_current_date_time_est()
+
+        est_time = datetime.now(tz)
         curr_date = est_time.strftime('%Y-%m-%d')
         curr_time = est_time.strftime('%H:%M:%S')
-        
-        print("Save executed at", curr_date, curr_time)
-        
+
+        print(f"Save executed at {curr_date} {curr_time}")
+
         # Execute the save function
         odds_api.save_live_odds(curr_date, curr_time, ODDS_KEYS[0])
-        
-        # Calculate time remaining until the next interval
-        time_to_wait = (next_run - datetime.now()).total_seconds()
-        time.sleep(max(time_to_wait, 0))  # Wait precisely until the next interval
-        
+
         # Update next_run for the following interval
         next_run += timedelta(seconds=interval_seconds)
+
+        # Calculate time remaining until the next interval
+        now = datetime.now(tz)
+        time_to_wait = (next_run - now).total_seconds()
+
+        if time_to_wait < 0:
+            # If we're behind schedule, adjust next_run
+            missed_intervals = int(abs(time_to_wait) // interval_seconds) + 1
+            next_run += timedelta(seconds=interval_seconds * missed_intervals)
+            time_to_wait = (next_run - datetime.now(tz)).total_seconds()
+
+        time.sleep(max(time_to_wait, 0))  # Wait precisely until the next interval
+
 
 
 
