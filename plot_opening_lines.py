@@ -43,7 +43,7 @@ def get_start_lines(df):
 def plot_moneylines(df, date):
 
     # Create a PdfPages object to save plots to a PDF
-    pdf_filename = f'{date}_opening_moneyline_plots.pdf'
+    pdf_filename = f'{date}_starting_moneyline_plots.pdf'
     pdf = PdfPages(pdf_filename)
 
     # Plot 1: Scatter Plot
@@ -116,7 +116,7 @@ def plot_moneylines(df, date):
 
     # AWS S3 configuration
     s3_bucket_name = 'moneygans-data' 
-    s3_file_key = f'basketball_nba/{date}/{pdf_filename}'       # Replace with the desired S3 object key
+    s3_file_key = f'basketball_nba/starting_money/{date}_starting/plots/{pdf_filename}'       # Replace with the desired S3 object key
 
     # Create an S3 client
     s3_client = boto3.client('s3')
@@ -154,7 +154,7 @@ def main():
     plot_moneylines(money_lines, prev_date)
 
     s3_bucket_name = 'moneygans-data' 
-    s3_file_key = f'basketball_nba/{prev_date}/opening_moneylines.parquet'
+    s3_file_key = f'basketball_nba/starting_money/{prev_date}_starting/data/starting_moneylines.parquet'
     start_line_df.to_parquet(f's3://{s3_bucket_name}/{s3_file_key}', engine='pyarrow')
 
 if __name__ == '__main__':

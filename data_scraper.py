@@ -169,6 +169,8 @@ def execute_interval(interval_seconds):
         # Perform the data scraping and saving process
         odds_api = OddsAPI(ODDS_KEYS[0])
         data = odds_api.data
+        if data.empty:
+            time.sleep(12 * 3600) #sleeps for 12 hours
         first_start_time = data[data['commence_time'] == data['commence_time'].min()].iloc[0]['commence_time_pst']
         start_time_lag = (datetime.fromisoformat(first_start_time) - timedelta(minutes=5)).strftime('%H:%M')
 
@@ -204,4 +206,4 @@ def execute_interval(interval_seconds):
 
 
 if __name__ == '__main__':
-    execute_interval(15)
+    execute_interval(30)
