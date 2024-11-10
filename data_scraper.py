@@ -14,17 +14,37 @@ REGIONS = ['us', 'us2']
 S3_PATH = 's3://moneygans-data/'
 
 class OddsAPI():
+    """This class contains the functionality for getting live data from the Odds-API and saving to AWS.
+
+    The real-time raw data is returned from the initial api call in get_raw_odds(). The data is then processed 
+    by format_df() which extracts the relevant features from the raw data. The save_live_odds() method then
+    saves the formatted live_odds data to AWS.
+
+    Attributes:
+        data (pd.DataFrame): contains the data returned from the API hit
+    """
     def __init__(self, sport):
         self.data = self.format_df(self.get_raw_odds(sport))
     
     def get_raw_odds(self, sport):
+        """Calls the odds-API and returns a formatted dataframe to later be processed. 
+        
+        Args:
+            sport: (str): string from ODDS_KEYS which indicates which sport data to collect
+        
+        Returns:
+            pd.DataFrame: dataframe containing raw odds data from the current day.
+
+        """
         response_dfs = []
+        
+        #Iterates through the different regions to get all the Mass sportsbooks
         for region in REGIONS:
             odds_url = f'https://api.the-odds-api.com/v4/sports/{sport}/odds/?apiKey={API_KEY}&regions={region}&markets=h2h&oddsFormat=american&dateFormat=unix'
             response_dfs.append(pd.json_normalize(requests.get(odds_url).json()))
         response_df = pd.concat([response_dfs[0], response_dfs[1]])
         
-        #Remove events that are not from today
+        #Removes events that are not from today
         response_df = response_df[response_df['commence_time'].apply(ts_to_iso).apply(get_date) == get_date(ts_to_iso(time.time()))]
         return response_df
     
@@ -38,10 +58,13 @@ class OddsAPI():
             pd.DataFrame: formatted dataframe to be later used for analysis
 
         """
+        #New df to be returned with the cleaned data
         new_df = pd.DataFrame()
-        #Iterates through bookmakers to extract odds
+        
+        #Iterates through rows of raw dataframe
         for i, row in enumerate(response_df.iterrows()):
-            index, data = row  # Unpack the tuple
+            index, data = row  # Unpacks the tuple
+            #Iterates through the 6 Mass sports books to extract the data on the particular row
             for book in data['bookmakers']:
                 if book['key'] in MASS_BOOKS:
                     new_row = data.drop('bookmakers')
@@ -75,6 +98,7 @@ class OddsAPI():
                     new_row['game_time_hrs'] = convert_to_hours(new_row['game_time_ms'])
                     new_row['last_update'] = book['markets'][0]['last_update']
                     new_row['last_update_pst'] = ts_to_iso(new_row['last_update'])
+                    #Used to find the starting moneylines by subtracting the commence_time from the update time
                     new_row['true_game_time_ms'] = new_row['last_update'] - new_row['commence_time']
                     new_df = pd.concat([new_df, new_row], axis=1)
             # print(new_row)
@@ -139,22 +163,19 @@ def sleep_until_out_of_interval(start_time: str, end_time: str):
     #else:
         #print("Current time is outside the specified interval, no sleep.")
 
-def get_current_date_time_est():
-    # Define the Pacific Standard Time zone
-    pst_timezone = pytz.timezone('America/Los_Angeles')
-    
-    # Get the current time in UTC
-    utc_time = datetime.now(pytz.utc)
-    
-    # Convert the current UTC time to PST time
-    pst_time = utc_time.astimezone(pst_timezone)
-    
-    return pst_time
-
 def execute_interval(interval_seconds):
+    """Exectutes the data scraper continuously while waiting interval_seconds between each execution.
+
+    This function also sleeps when there are no games going on and starts its execution 5 minutes before the 
+    first game of the day.
+
+    Args:
+        interval_seconds(int): seconds to wait between each API hit
+    """
+    
     tz = pytz.timezone('America/Los_Angeles')
 
-    # Align to the next interval
+    # Aligns to the next interval
     est_time = datetime.now(tz)
     seconds = est_time.second
     delay = interval_seconds - (seconds % interval_seconds)
@@ -162,19 +183,22 @@ def execute_interval(interval_seconds):
         delay = 0  # Already aligned
     time.sleep(delay)  # Align with the next interval
 
-    # Set next_run to the current time (already aligned)
+    # Sets next_run to the current time (already aligned)
     next_run = datetime.now(tz).replace(microsecond=0)
 
     while True:
-        # Perform the data scraping and saving process
+        # Performs the data scraping and saving process
         odds_api = OddsAPI(ODDS_KEYS[0])
         data = odds_api.data
+        # Sleeps if there isn't any data returned, typicaly at the end of the day or on days with no games
         if data.empty:
             time.sleep(12 * 3600) #sleeps for 12 hours
+        #Finds the star time of the first game of the day
         first_start_time = data[data['commence_time'] == data['commence_time'].min()].iloc[0]['commence_time_pst']
+        #Lags the start time by 5 minutes
         start_time_lag = (datetime.fromisoformat(first_start_time) - timedelta(minutes=5)).strftime('%H:%M')
 
-        # Sleep during the specified interval
+        # Sleeps between 12AM PST and 5 minutes before the first event of a day. 
         sleep_until_out_of_interval('00:00', start_time_lag)
 
         est_time = datetime.now(tz)
@@ -183,13 +207,13 @@ def execute_interval(interval_seconds):
 
         print(f"Save executed at {curr_date} {curr_time}")
 
-        # Execute the save function
+        # Executes the save function
         odds_api.save_live_odds(curr_date, curr_time, ODDS_KEYS[0])
 
-        # Update next_run for the following interval
+        # Updates next_run for the following interval
         next_run += timedelta(seconds=interval_seconds)
 
-        # Calculate time remaining until the next interval
+        # Calculates time remaining until the next interval
         now = datetime.now(tz)
         time_to_wait = (next_run - now).total_seconds()
 
@@ -200,9 +224,6 @@ def execute_interval(interval_seconds):
             time_to_wait = (next_run - datetime.now(tz)).total_seconds()
 
         time.sleep(max(time_to_wait, 0))  # Wait precisely until the next interval
-
-
-
 
 
 if __name__ == '__main__':

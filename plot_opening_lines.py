@@ -9,9 +9,15 @@ import seaborn as sns
 import os
 import time
 
-MASS_BOOKS = ['draftkings', 'fanduel', 'betmgm', 'williamhill_us', 'espnbet', 'ballybet']
+MASS_BOOKS = ['draftkings', 'fanduel', 'betmgm', 'williamhill_us', 'espnbet', 'ballybet'] #List of Mass sportsbooks
 
 def list_filenames(bucket_name, directory_prefix):
+    """Returns a list of filenames within a particular directory in AWS S3
+
+    Args:
+        bucket_name (str): name of bucket with directory
+        directory_prefix (str): path of directory to get the files.
+    """
     # Create a boto3 client for S3
     s3 = boto3.client('s3')
 
@@ -30,9 +36,19 @@ def list_filenames(bucket_name, directory_prefix):
     return filenames
 
 def get_start_lines(df):
+    """Gets the starting moneylines for each game. 
+
+    This function takes in the aggregated data for a particular day and extracts the rows representing
+    the moneylines at the start of each event. It does this by finding the data that was collected
+    at the time closest to the start time.
+
+    Returns:
+        pd.DataFrame: Containing all the starting lines for a particula day for all the books.
+    """
     ret_df = pd.DataFrame()
-    # Itterates through individual games
+    #Iterates through individual games
     for game_id in df['id'].unique():
+        #Iterates through sportsbooks
         for book in MASS_BOOKS:
             game_df = df[(df['id'] == game_id) & (df['book'] == book)] 
             min_line_idx = np.argmin(game_df['true_game_time_ms'].abs())
@@ -40,7 +56,7 @@ def get_start_lines(df):
             ret_df = pd.concat([ret_df, start_line], axis=0)
     return ret_df.reset_index(drop=True)
 
-def plot_moneylines(df, date):
+def plot_moneylines(df, date, plot_agg=False):
 
     # Create a PdfPages object to save plots to a PDF
     pdf_filename = f'{date}_starting_moneyline_plots.pdf'
@@ -116,7 +132,11 @@ def plot_moneylines(df, date):
 
     # AWS S3 configuration
     s3_bucket_name = 'moneygans-data' 
-    s3_file_key = f'basketball_nba/starting_money/{date}_starting/plots/{pdf_filename}'       # Replace with the desired S3 object key
+    
+    if plot_agg:
+        s3_file_key = f'basketball_nba/starting_money/starting_money_agg/plots/{pdf_filename}'
+    else:
+        s3_file_key = f'basketball_nba/starting_money/{date}_starting/plots/{pdf_filename}'       # Replace with the desired S3 object key
 
     # Create an S3 client
     s3_client = boto3.client('s3')
