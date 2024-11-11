@@ -106,7 +106,7 @@ class OddsAPI():
         return new_df.T.reset_index(drop=True)
     
     def save_live_odds(self, date, time, sport):
-        s3_path = S3_PATH+f'{sport}/{date}/live_odds/{sport}_{date}_{time}.parquet'
+        s3_path = S3_PATH+f'{sport}/live_odds/{date}/{sport}_{date}_{time}.parquet'
         if not self.data.empty:
             self.data.to_parquet(s3_path, index=False)
 
