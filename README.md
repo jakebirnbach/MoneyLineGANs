@@ -2,18 +2,17 @@
 
 This project aims to develop and test a Generative Adversarial Network (GAN),
 to generate synthetic moneyline betting data which accurately reflects the dynamics of the Massachusetts sports betting markets. By experimenting with
-different model architectures, we hope to demonstrate that the generated syn thetic data can mimic real-world patterns and provide insights into market
+different model architectures, we hope to demonstrate that the generated synthetic data can mimic real-world patterns and provide insights into market
 inefficiencies and arbitrage opportunities.
 
-This repo contains all the code for scarping real-time moneyline data from The Odds API. The scripts preprocess the raw data and stores it to AWS S3 with aggregated visualizations.
+This repo contains all the code for scarping real-time moneyline data from The Odds API. The scripts preprocess the raw data and stores it to AWS S3 with aggregated visualizations. It also contains the implementation and testing of W-GANs with various architectures and model configurations.
 
 ## Problem Formulation
 
 Consider discrete measurements of moneyline data 
 
 $$
-\mathbf{x} = \begin{pmatrix}a\\
-b\end{pmatrix} = \begin{pmatrix}\text{+ moneyline}\\
+\mathbf{x} = \begin{pmatrix}\text{+ moneyline}\\
 \text{- moneyline}\end{pmatrix}
 $$
 
